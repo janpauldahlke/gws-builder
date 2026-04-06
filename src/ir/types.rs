@@ -44,6 +44,8 @@ pub struct IrField {
     pub default_value: Option<String>,
     /// Set by `resolve` when breaking a cyclic `$ref`.
     pub needs_box: bool,
+    /// `#[serde(flatten)]` for `additionalProperties` alongside fixed `properties`.
+    pub serde_flatten: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

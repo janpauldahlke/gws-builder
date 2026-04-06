@@ -233,6 +233,7 @@ fn method_param_to_field(
         deprecated: p.deprecated,
         default_value: p.default.as_ref().map(|v| v.to_string()),
         needs_box: false,
+        serde_flatten: false,
     })
 }
 
@@ -335,14 +336,116 @@ fn schema_to_struct(
             deprecated: false,
             default_value: prop.default.as_ref().map(|v| v.to_string()),
             needs_box: false,
+            serde_flatten: false,
         });
     }
+
+    if let Some(extra) = schema_additional_flatten_field(
+        name,
+        schema,
+        schema_map,
+        structs,
+        enums,
+        emitted,
+    )? {
+        fields.push(extra);
+    }
+
     Ok(IrStruct {
         name: name.to_string(),
         doc: schema.description.clone(),
         fields,
         is_recursive: false,
     })
+}
+
+/// When both `properties` and `additionalProperties` are set, add a flattened map field.
+fn schema_additional_flatten_field(
+    struct_name: &str,
+    schema: &JsonSchema,
+    schema_map: &HashMap<String, JsonSchema>,
+    structs: &mut Vec<IrStruct>,
+    enums: &mut Vec<IrEnum>,
+    emitted: &mut HashSet<String>,
+) -> Result<Option<IrField>, BuilderError> {
+    if schema.properties.is_empty() {
+        return Ok(None);
+    }
+    let ap = match &schema.additional_properties {
+        Some(v) => v,
+        None => return Ok(None),
+    };
+    if ap.is_boolean() && ap.as_bool() != Some(true) {
+        return Ok(None);
+    }
+    let value_ty = if ap.is_boolean() && ap.as_bool() == Some(true) {
+        IrType::Any
+    } else {
+        additional_properties_value_type(
+            ap,
+            struct_name,
+            schema_map,
+            structs,
+            enums,
+            emitted,
+        )?
+    };
+    Ok(Some(IrField {
+        original_name: "additionalProperties".into(),
+        rust_name: "extra".into(),
+        doc: Some("Key/value pairs not declared in the fixed schema properties.".into()),
+        field_type: IrType::Map(Box::new(value_ty)),
+        required: false,
+        read_only: false,
+        deprecated: false,
+        default_value: None,
+        needs_box: false,
+        serde_flatten: true,
+    }))
+}
+
+fn additional_properties_value_type(
+    ap: &serde_json::Value,
+    ctx: &str,
+    schema_map: &HashMap<String, JsonSchema>,
+    structs: &mut Vec<IrStruct>,
+    enums: &mut Vec<IrEnum>,
+    emitted: &mut HashSet<String>,
+) -> Result<IrType, BuilderError> {
+    if let Some(obj) = ap.as_object() {
+        if let Some(t) = obj.get("type").and_then(|x| x.as_str()) {
+            let fake_prop = JsonSchemaProperty {
+                prop_type: Some(t.to_string()),
+                description: None,
+                schema_ref: obj
+                    .get("$ref")
+                    .and_then(|r| r.as_str())
+                    .map(|s| s.to_string()),
+                format: obj
+                    .get("format")
+                    .and_then(|x| x.as_str())
+                    .map(|s| s.to_string()),
+                items: None,
+                properties: HashMap::new(),
+                read_only: false,
+                default: None,
+                enum_values: None,
+                enum_descriptions: None,
+                additional_properties: None,
+                annotations: None,
+            };
+            return property_to_ir_type(
+                ctx,
+                "additional",
+                &fake_prop,
+                schema_map,
+                structs,
+                enums,
+                emitted,
+            );
+        }
+    }
+    Ok(IrType::Any)
 }
 
 fn property_to_ir_type(

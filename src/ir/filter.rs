@@ -17,11 +17,14 @@ pub fn apply_filter(service: &mut IrService, filter: &ActionFilter) -> Result<()
                     service.name
                 )));
             }
+            let available = collect_method_ids(service);
             filter_resources_whitelist(&mut service.resources, patterns);
             if count_methods(&service.resources) == 0 {
                 return Err(BuilderError::Resolution(format!(
-                    "whitelist matched no methods for service {}; check patterns {patterns:?}",
-                    service.name
+                    "whitelist matched no methods for service {}; patterns {patterns:?}. \
+                     Sample method ids (build patterns from resource + method): {}",
+                    service.name,
+                    format_method_hint(&available, 12)
                 )));
             }
         }
@@ -75,6 +78,35 @@ fn collect_ref_names(ty: &IrType, out: &mut HashSet<String>) {
         IrType::Enum(_) => {}
         _ => {}
     }
+}
+
+fn collect_method_ids(service: &IrService) -> Vec<String> {
+    let mut out = Vec::new();
+    fn walk(res: &IrResource, out: &mut Vec<String>) {
+        for m in &res.methods {
+            out.push(m.id.clone());
+        }
+        for s in &res.sub_resources {
+            walk(s, out);
+        }
+    }
+    for r in &service.resources {
+        walk(r, &mut out);
+    }
+    out.sort();
+    out
+}
+
+fn format_method_hint(ids: &[String], max: usize) -> String {
+    if ids.is_empty() {
+        return "(none)".into();
+    }
+    let take = ids.len().min(max);
+    let mut s = ids.iter().take(take).cloned().collect::<Vec<_>>().join(", ");
+    if ids.len() > take {
+        s.push_str(&format!(" … (+{} more)", ids.len() - take));
+    }
+    s
 }
 
 fn count_methods(resources: &[IrResource]) -> usize {

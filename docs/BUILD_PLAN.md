@@ -301,6 +301,8 @@ pub struct IrField {
     pub read_only: bool,
     pub deprecated: bool,
     pub default_value: Option<String>,
+    pub needs_box: bool,           // cyclic $ref: emit Box<T>
+    pub serde_flatten: bool,        // #[serde(flatten)] for additionalProperties + properties
 }
 
 pub struct IrEnum {
@@ -668,10 +670,12 @@ thiserror = "2"
 prettyplease = "0.2"
 heck = "0.5"          # camelCase/snake_case/PascalCase conversion
 sha2 = "0.10"         # SHA-256 for Discovery doc checksums in manifest
-glob-match = "0.2"    # glob pattern matching for ActionFilter whitelist/blacklist
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }  # RFC3339 manifest timestamps
 ```
 
-Note: `ureq` v3 is the current version (uses rustls by default, no OpenSSL). `heck` handles naming conventions correctly. `sha2` is used only for manifest checksums. `glob-match` provides lightweight glob matching for filter patterns like `"files.*"`.
+Note: `ureq` v3 is the current version (uses rustls by default, no OpenSSL). `heck` handles naming conventions correctly. `sha2` is used only for manifest checksums. Whitelist/blacklist patterns (`files.*`, `users.**`, etc.) are matched in `filter.rs` with a small custom matcher, not the `glob-match` crate.
+
+**Consumer crates** that compile generated `serde_helpers.rs` need a `base64` dependency (see README) for `deserialize_bytes_base64`.
 
 ---
 
@@ -751,7 +755,7 @@ Each service gets its own module file, so `drive::File` and `gmail::Message` nev
 - **`discovery`**: Parse fixture JSON files (saved from real Discovery docs) into serde types
 - **`transform`**: Convert known Discovery fragments -> IR, assert field types, names, optionality
 - **`resolve`**: Test cycle detection with hand-crafted cyclic schema graphs
-- **`filter`**: Verify whitelist/blacklist pattern matching, glob expansion, dead schema pruning (schema referenced only by dropped methods must be pruned; schema referenced by retained methods must survive)
+- **`filter`**: Verify whitelist/blacklist pattern matching, dead schema pruning (schema referenced only by dropped methods must be pruned; schema referenced by retained methods must survive)
 - **`manifest`**: Round-trip serialize/deserialize of `GenerationManifest`, test each `RegenerationPolicy` variant (mock filesystem), test filter-change detection triggers regen
 - **`catalog`**: Verify `list_available_actions()` produces correct flat list from nested resource trees (Gmail's `users.messages.attachments` depth)
 - **`structs/enums`**: Compare `quote!` output `TokenStream` `.to_string()` against expected strings
@@ -923,7 +927,7 @@ todos:
   content: Implement Discovery -> IR transformation with full type mapping table, inline object naming, enum extraction
   status: pending
 - id: ir-filter
-  content: Implement ActionFilter (All/Whitelist/Blacklist) with glob matching and dead schema pruning
+  content: Implement ActionFilter (All/Whitelist/Blacklist) with pattern matching and dead schema pruning
   status: pending
 - id: naming
   content: "Implement naming module: camelCase->snake_case, PascalCase, keyword escaping, collision detection"

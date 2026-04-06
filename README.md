@@ -40,6 +40,17 @@ In the **consumer** crate that will run codegen (often the same crate that owns 
 gws-builder = { path = "../gws-builder" }   # or version from crates.io when published
 ```
 
+The **generated** crate (the `src/` that includes `generated/gws_types/mod.rs`) also needs these **runtime** dependencies so emitted types and `serde_helpers.rs` compile:
+
+```toml
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+```
+
+(`base64` is used for Google `format: byte` fields deserialized via `serde_helpers::deserialize_bytes_base64`.)
+
 ## Minimal `build.rs` (whitelist)
 
 ```rust

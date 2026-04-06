@@ -158,6 +158,23 @@ where
 
     deserializer.deserialize_any(U64Visitor)
 }
+
+/// Google `format: byte` fields are base64url or standard base64 strings.
+pub fn deserialize_bytes_base64<'de, D>(deserializer: D) -> Result<Option<Vec<u8>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use base64::Engine;
+    use serde::Deserialize;
+    let opt = Option::<String>::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(s) => base64::engine::general_purpose::STANDARD
+            .decode(s.trim())
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
 "#
 }
 

@@ -131,6 +131,7 @@ mod tests {
                 deprecated: false,
                 default_value: None,
                 needs_box: false,
+                serde_flatten: false,
             }],
             is_recursive: false,
         };
@@ -147,6 +148,7 @@ mod tests {
                 deprecated: false,
                 default_value: None,
                 needs_box: false,
+                serde_flatten: false,
             }],
             is_recursive: false,
         };

@@ -253,12 +253,7 @@ pub fn generate(config: BuilderConfig) -> Result<GenerationReport, BuilderError>
 }
 
 fn now_iso8601() -> String {
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    // Seconds since epoch is stable without extra deps; consumers can format if needed.
-    format!("{secs}")
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 fn list_existing_service_modules(out_dir: &Path, specs: &[ServiceSpec]) -> Vec<String> {
