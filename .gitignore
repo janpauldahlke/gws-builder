@@ -3,4 +3,4 @@
 .cursor/
 .cursorrules
 .env
-.env.example
+.env.local

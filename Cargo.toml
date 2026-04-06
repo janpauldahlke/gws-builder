@@ -1,6 +1,6 @@
 [package]
 name = "gws-builder"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Build-time codegen from Google API Discovery: Rust types, method metadata, and serde helpers for Workspace agents."
 license = "MIT OR Apache-2.0"
