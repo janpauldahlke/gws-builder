@@ -92,7 +92,8 @@ pub struct MediaUploadProtocols {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MediaUploadProtocol {
     pub path: String,
-    pub multipart: Option<String>,
+    /// Discovery docs use a boolean for `multipart` (e.g. Drive).
+    pub multipart: Option<bool>,
 }
 
 /// Reference to another schema (`$ref`).

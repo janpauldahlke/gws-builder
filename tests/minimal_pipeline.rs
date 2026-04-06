@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::fs;
 
 use gws_builder::{
-    generate, list_available_actions, ActionFilter, BuilderConfig, MapFetcher, RegenerationPolicy,
-    ServiceSpec,
+    generate, list_available_actions, ActionFilter, BuilderConfig, BuilderError, MapFetcher,
+    RegenerationPolicy, ServiceSpec,
 };
 
 const MINIMAL: &str = r#"{
@@ -44,11 +44,9 @@ fn generate_with_map_fetcher_emits_rust() {
     let tmp = tempfile::tempdir().expect("tmp");
     let out = tmp.path().join("gws_types");
     let report = generate(BuilderConfig {
-        services: vec![ServiceSpec {
-            name: "testapi".into(),
-            version: "v1".into(),
-            filter: ActionFilter::All,
-        }],
+        services: vec![ServiceSpec::whitelist("testapi", "v1", vec!["items.*".into()]).expect(
+            "whitelist",
+        )],
         out_dir: out.clone(),
         regeneration: RegenerationPolicy::Always,
         fetcher: Some(Box::new(MapFetcher { docs: m })),
@@ -79,4 +77,10 @@ fn list_available_actions_smoke() {
     )
     .expect("catalog");
     assert!(actions.iter().any(|a| a.id.contains("items.list")));
+}
+
+#[test]
+fn empty_whitelist_is_rejected() {
+    let e = ServiceSpec::whitelist("drive", "v3", vec![]).expect_err("empty");
+    assert!(matches!(e, BuilderError::Resolution(_)));
 }

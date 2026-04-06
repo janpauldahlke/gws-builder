@@ -41,11 +41,39 @@ pub enum ActionFilter {
 }
 
 /// One Google API (e.g. Drive v3) to generate.
+///
+/// **Only APIs you list in [`BuilderConfig::services`] are codegenned.** To keep binaries small and
+/// scopes minimal, give each API a [`ActionFilter::Whitelist`] (see [`ServiceSpec::whitelist`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ServiceSpec {
     pub name: String,
     pub version: String,
     pub filter: ActionFilter,
+}
+
+impl ServiceSpec {
+    /// Emit only methods matching these patterns; see [`ActionFilter`] and the crate README.
+    ///
+    /// Returns an error if `patterns` is empty — use [`list_available_actions`] to discover ids,
+    /// then add patterns such as `files.*` or `users.messages.list`.
+    pub fn whitelist(
+        name: impl Into<String>,
+        version: impl Into<String>,
+        patterns: Vec<String>,
+    ) -> Result<Self, BuilderError> {
+        if patterns.is_empty() {
+            return Err(BuilderError::Resolution(
+                "whitelist patterns must not be empty: list APIs in BuilderConfig.services, then \
+                 add one or more patterns per API (use list_available_actions() to discover them)"
+                    .into(),
+            ));
+        }
+        Ok(Self {
+            name: name.into(),
+            version: version.into(),
+            filter: ActionFilter::Whitelist(patterns),
+        })
+    }
 }
 
 /// When to fetch Discovery docs and regenerate Rust sources.
@@ -95,6 +123,10 @@ pub struct GenerationReport {
 
 /// Run fetch → parse → filter → IR → codegen → emit for each configured service.
 pub fn generate(config: BuilderConfig) -> Result<GenerationReport, BuilderError> {
+    for spec in &config.services {
+        validate_service_spec(spec)?;
+    }
+
     let fetcher: Box<dyn DiscoveryFetcher> = config
         .fetcher
         .unwrap_or_else(|| Box::new(HttpFetcher::new()));
@@ -253,4 +285,16 @@ fn manifest_path_for_out(out_dir: &Path) -> PathBuf {
         .parent()
         .unwrap_or(Path::new("."))
         .join("generation_manifest.json")
+}
+
+fn validate_service_spec(spec: &ServiceSpec) -> Result<(), BuilderError> {
+    if let ActionFilter::Whitelist(p) = &spec.filter {
+        if p.is_empty() {
+            return Err(BuilderError::Resolution(format!(
+                "service `{}`: whitelist patterns must not be empty (remove the API or add patterns)",
+                spec.name
+            )));
+        }
+    }
+    Ok(())
 }

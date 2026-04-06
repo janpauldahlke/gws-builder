@@ -5,8 +5,8 @@
 use std::collections::HashMap;
 
 use heck::{ToPascalCase, ToSnakeCase};
-use proc_macro2::Ident;
-use quote::format_ident;
+use proc_macro2::{Ident, TokenStream};
+use quote::{format_ident, quote};
 
 const RUST_KEYWORDS: &[&str] = &[
     "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn", "for",
@@ -26,20 +26,28 @@ pub fn to_pascal_case(name: &str) -> String {
     name.to_pascal_case()
 }
 
-/// Field identifier (`snake_case`), escaping reserved words with raw identifiers.
-pub fn field_ident(name: &str) -> Ident {
-    let s = to_snake_case(name);
-    if RUST_KEYWORDS.contains(&s.as_str()) {
-        format_ident!("r#{}", s)
-    } else {
-        format_ident!("{}", s)
+/// Field identifier (`snake_case`), escaping reserved words with raw identifiers or `self_` + rename.
+///
+/// `original_json_name` is the Discovery property name (camelCase) for `#[serde(rename = ...)]` when
+/// a raw identifier is invalid for `quote!` (e.g. `r#self`).
+pub fn field_ident_with_rename(rust_snake: &str, original_json_name: &str) -> (Ident, Option<TokenStream>) {
+    let s = rust_snake;
+    if s == "self" {
+        return (
+            format_ident!("self_"),
+            Some(quote!(#[serde(rename = #original_json_name)])),
+        );
     }
+    if RUST_KEYWORDS.iter().any(|&k| k == s) {
+        return (format_ident!("r#{}", s), None);
+    }
+    (format_ident!("{}", s), None)
 }
 
 /// Escape reserved words as a string (for diagnostics).
 pub fn escape_keyword(ident: &str) -> String {
     let s = to_snake_case(ident);
-    if RUST_KEYWORDS.contains(&s.as_str()) {
+    if RUST_KEYWORDS.iter().any(|&k| k == s.as_str()) {
         format!("r#{s}")
     } else {
         s

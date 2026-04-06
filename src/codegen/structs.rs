@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::codegen::naming::field_ident;
+use crate::codegen::naming::field_ident_with_rename;
 use crate::ir::types::{IrField, IrStruct, IrType};
 
 /// Emit a Rust struct with serde attributes.
@@ -26,7 +26,8 @@ pub fn emit_struct(s: &IrStruct) -> TokenStream {
 fn emit_field(f: &IrField) -> TokenStream {
     let doc = f.doc.as_ref().map(|d| quote!(#[doc = #d]));
     let deprec = f.deprecated.then(|| quote!(#[deprecated]));
-    let rust = field_ident(&f.rust_name);
+    let (rust, serde_rename) = field_ident_with_rename(&f.rust_name, &f.original_name);
+    let serde_rename = serde_rename.unwrap_or_else(|| quote!());
     let inner = ir_type_tokens(&f.field_type, f.needs_box);
     let serde_int64 = matches!(&f.field_type, IrType::I64).then(|| {
         quote!(#[serde(default, deserialize_with = "super::serde_helpers::string_to_i64")])
@@ -39,6 +40,7 @@ fn emit_field(f: &IrField) -> TokenStream {
     quote! {
         #doc
         #deprec
+        #serde_rename
         #serde_int64
         #serde_u64
         #skip

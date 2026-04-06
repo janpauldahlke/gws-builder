@@ -3,7 +3,7 @@
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-use crate::codegen::naming::field_ident;
+use crate::codegen::naming::field_ident_with_rename;
 use crate::ir::types::{IrField, IrMethod, IrType};
 
 /// Emit `Params` structs for each method (grouped later by resource module in actions).
@@ -33,10 +33,12 @@ fn emit_one_method_params(m: &IrMethod) -> TokenStream {
 }
 
 fn emit_param_field(f: &IrField) -> TokenStream {
-    let rust = field_ident(&f.rust_name);
+    let (rust, serde_rename) = field_ident_with_rename(&f.rust_name, &f.original_name);
+    let serde_rename = serde_rename.unwrap_or_else(|| quote!());
     let inner = ir_param_type(&f.field_type);
     let skip = quote!(#[serde(skip_serializing_if = "Option::is_none")]);
     quote! {
+        #serde_rename
         #skip
         pub #rust: Option<#inner>,
     }

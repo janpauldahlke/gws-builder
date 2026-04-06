@@ -11,8 +11,14 @@ pub fn apply_filter(service: &mut IrService, filter: &ActionFilter) -> Result<()
     match filter {
         ActionFilter::All => {}
         ActionFilter::Whitelist(patterns) => {
+            if patterns.is_empty() {
+                return Err(BuilderError::Resolution(format!(
+                    "service `{}`: empty whitelist",
+                    service.name
+                )));
+            }
             filter_resources_whitelist(&mut service.resources, patterns);
-            if !patterns.is_empty() && count_methods(&service.resources) == 0 {
+            if count_methods(&service.resources) == 0 {
                 return Err(BuilderError::Resolution(format!(
                     "whitelist matched no methods for service {}; check patterns {patterns:?}",
                     service.name
