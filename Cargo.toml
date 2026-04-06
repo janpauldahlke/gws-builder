@@ -2,6 +2,14 @@
 name = "gws-builder"
 version = "0.1.0"
 edition = "2024"
+description = "Build-time codegen from Google API Discovery: Rust types, method metadata, and serde helpers for Workspace agents."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/janpauldahlke/gws-builder"
+documentation = "https://docs.rs/gws-builder"
+readme = "README.md"
+keywords = ["google", "workspace", "discovery", "codegen", "api"]
+categories = ["development-tools::build-utils"]
+exclude = ["/generated", ".env"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

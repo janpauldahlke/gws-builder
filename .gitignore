@@ -2,3 +2,5 @@
 /generated/
 .cursor/
 .cursorrules
+.env
+.env.local
